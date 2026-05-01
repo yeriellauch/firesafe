@@ -4,21 +4,24 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover, maximum-scale=1, user-scalable=no">
   <meta name="theme-color" content="#1a1f2c">
-  <title>FireSafe — AR fire safety lessons</title>
+  <title>FireSafe — AR fire-safety lessons</title>
   <link rel="stylesheet" href="styles.css">
   <link rel="icon" type="image/svg+xml" href="assets/img/icon_extinguisher_classic.svg">
+
+  <!-- model-viewer powers AR Quick Look on iOS + a clean fallback in-browser -->
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/3.5.0/model-viewer.min.js"></script>
 </head>
 <body>
 
-  <!-- Desktop phone frame: just decoration, app fills it on mobile -->
-  <div class="phone-frame" aria-hidden="false">
+  <!-- Phone frame on desktop, full bleed on mobile -->
+  <div class="phone-frame">
     <div class="phone-notch"></div>
     <div class="phone-screen">
 
-      <!-- =================== SCREEN: SPLASH =================== -->
+      <!-- ===================== SPLASH ===================== -->
       <section class="screen active" data-screen="splash">
         <div class="splash-bg"></div>
-        <div class="splash-content">
+        <div class="splash-content safe-top safe-bottom">
           <div class="brand-mark">
             <svg viewBox="0 0 64 64" width="64" height="64" aria-hidden="true">
               <path d="M32 4c-2 10-12 14-12 26a12 12 0 0 0 24 0c0-6-4-10-6-14-2 6-6 6-6 0z" fill="#ff5a3c"/>
@@ -26,129 +29,143 @@
             </svg>
           </div>
           <h1 class="brand-name">FireSafe</h1>
-          <p class="brand-tag">AR-guided fire safety lessons</p>
-          <button class="btn btn-primary btn-lg" data-go="lesson-intro">Start lesson</button>
+          <p class="brand-tag">Learn fire safety placement<br>through real AR</p>
+          <button class="btn btn-primary btn-lg" data-go="category-select">Start lesson</button>
           <p class="splash-foot">Lesson 1 · Classroom setup</p>
         </div>
       </section>
 
-      <!-- =================== SCREEN: LESSON INTRO =================== -->
-      <section class="screen" data-screen="lesson-intro">
-        <header class="topbar">
+      <!-- ===================== CATEGORY SELECT ===================== -->
+      <section class="screen" data-screen="category-select">
+        <header class="topbar safe-top">
           <button class="iconbtn" data-go="splash" aria-label="Back">
             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
-          <h2 class="topbar-title">Lesson 1</h2>
-          <span class="iconbtn invisible"></span>
-        </header>
-        <div class="content">
-          <h1 class="hero-title">Classroom safety setup</h1>
-          <p class="hero-sub">Place fire safety equipment in this room. We'll give you live feedback on each placement choice.</p>
-
-          <div class="lesson-card">
-            <h3>What you'll learn</h3>
-            <ul class="bullet-list">
-              <li>Where to install fire extinguishers for fast access</li>
-              <li>Which extinguisher type fits which fire class</li>
-              <li>How room layout and obstructions affect placement</li>
-            </ul>
-          </div>
-
-          <div class="lesson-card">
-            <h3>Items to place</h3>
-            <div class="item-strip">
-              <div class="item-strip-cell"><img src="assets/img/icon_extinguisher_classic.svg" alt=""></div>
-              <div class="item-strip-cell"><img src="assets/img/icon_extinguisher_bronze.svg" alt=""></div>
-              <div class="item-strip-cell"><img src="assets/img/icon_extinguisher_modern.svg" alt=""></div>
-              <div class="item-strip-cell"><img src="assets/img/icon_water_bucket.svg" alt=""></div>
-            </div>
-            <p class="muted small">4 items · roughly 3 minutes</p>
-          </div>
-
-          <button class="btn btn-primary btn-lg" data-go="category-select">Begin placement</button>
-        </div>
-      </section>
-
-      <!-- =================== SCREEN: CATEGORY SELECT =================== -->
-      <section class="screen" data-screen="category-select">
-        <header class="topbar">
-          <button class="iconbtn" data-go="lesson-intro" aria-label="Back">
-            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
-          </button>
-          <h2 class="topbar-title">Select category</h2>
+          <h2 class="topbar-title">Choose category</h2>
           <button class="iconbtn" data-modal="help" aria-label="Help">
             <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </header>
         <div class="content">
           <h1 class="hero-title">What would you like to place?</h1>
-          <p class="hero-sub">Pick a category, then choose a specific model.</p>
-
-          <div class="cat-grid" id="categoryGrid"><!-- filled by JS --></div>
+          <p class="hero-sub">Pick a category, then choose a specific 3D-scanned model.</p>
+          <div class="cat-grid" id="categoryGrid"></div>
         </div>
-        <div class="progress-pill"><span id="progressText">0 of 4 placed</span></div>
+        <div class="progress-pill safe-bottom"><span id="progressText">0 of 4 placed</span></div>
       </section>
 
-      <!-- =================== SCREEN: ITEM SELECT =================== -->
+      <!-- ===================== ITEM (VARIANT) SELECT ===================== -->
       <section class="screen" data-screen="item-select">
-        <header class="topbar">
+        <header class="topbar safe-top">
           <button class="iconbtn" data-go="category-select" aria-label="Back">
             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
-          <h2 class="topbar-title" id="itemSelectTitle">Choose a model</h2>
+          <h2 class="topbar-title" id="itemSelectTitle">Choose model</h2>
           <button class="iconbtn" data-modal="help" aria-label="Help">
             <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </header>
         <div class="content">
-          <div class="hint-stack" id="hintStack"><!-- hints injected by JS --></div>
-          <div class="variant-grid" id="variantGrid"><!-- filled by JS --></div>
-          <p class="muted small center">Tap a model to begin AR placement</p>
+          <div class="hint-stack" id="hintStack"></div>
+          <div class="variant-grid" id="variantGrid"></div>
+          <p class="muted small center">Tap a model to view it in 3D</p>
         </div>
       </section>
 
-      <!-- =================== SCREEN: AR PLACEMENT =================== -->
-      <section class="screen ar-screen" data-screen="ar">
-        <div class="ar-bg"></div>
-        <div class="ar-grid"></div>
-        <div class="ar-recording-dot" aria-hidden="true"><span></span>AR · simulated</div>
+      <!-- ===================== ITEM DETAIL / AR LAUNCH ===================== -->
+      <section class="screen" data-screen="detail">
+        <header class="topbar safe-top">
+          <button class="iconbtn" data-go="item-select" aria-label="Back">
+            <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
+          </button>
+          <h2 class="topbar-title" id="detailTitle">Model</h2>
+          <button class="iconbtn" data-modal="help" aria-label="Help">
+            <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
+          </button>
+        </header>
 
-        <header class="ar-topbar">
-          <button class="iconbtn glassy" data-go="category-select" aria-label="Back">
+        <div class="detail-viewer">
+          <model-viewer
+            id="detailViewer"
+            camera-controls
+            touch-action="pan-y"
+            auto-rotate
+            auto-rotate-delay="2000"
+            shadow-intensity="1.2"
+            exposure="1"
+            environment-image="neutral"
+            ar
+            ar-modes="quick-look webxr scene-viewer"
+            ar-scale="auto"
+            interaction-prompt="auto"
+            style="width:100%; height:100%; background:transparent;">
+            <button slot="ar-button" class="ar-button-slot">View in your space</button>
+            <div slot="poster" class="model-loading">
+              <div class="spinner"></div>
+              <p>Loading 3D scan…</p>
+            </div>
+          </model-viewer>
+        </div>
+
+        <div class="detail-info">
+          <h2 id="detailName">Item name</h2>
+          <p class="detail-class" id="detailClass">Fire class</p>
+
+          <div class="placement-tip" id="placementTip">
+            <strong>Placement tip:</strong> <span id="placementTipText">Mount at chest height on a clear, visible wall section.</span>
+          </div>
+
+          <div class="action-row safe-bottom">
+            <button class="btn btn-ghost" data-go="practice" id="practiceBtn">Practice placement</button>
+            <button class="btn btn-primary" id="launchArBtn">View in AR</button>
+          </div>
+        </div>
+      </section>
+
+      <!-- ===================== PRACTICE (camera + tap + feedback) ===================== -->
+      <section class="screen ar-screen" data-screen="practice">
+        <video id="cameraFeed" class="camera-feed" autoplay playsinline muted></video>
+        <div class="camera-fallback" id="cameraFallback">
+          <div class="camera-fallback-inner">
+            <svg viewBox="0 0 64 64" width="56" height="56"><path d="M14 22h8l4-6h12l4 6h8a4 4 0 0 1 4 4v22a4 4 0 0 1-4 4H14a4 4 0 0 1-4-4V26a4 4 0 0 1 4-4z" fill="none" stroke="currentColor" stroke-width="3" stroke-linejoin="round"/><circle cx="32" cy="36" r="9" fill="none" stroke="currentColor" stroke-width="3"/></svg>
+            <p>Camera permission needed for practice mode.</p>
+            <button class="btn btn-primary" id="cameraRetryBtn">Allow camera</button>
+          </div>
+        </div>
+        <div class="ar-grid"></div>
+        <div class="ar-recording-dot safe-top" aria-hidden="true"><span></span>Practice · simulated</div>
+
+        <header class="ar-topbar safe-top">
+          <button class="iconbtn glassy" data-go="detail" aria-label="Back">
             <svg viewBox="0 0 24 24" width="20" height="20"><path d="M15 5l-7 7 7 7" fill="none" stroke="currentColor" stroke-width="2.2" stroke-linecap="round" stroke-linejoin="round"/></svg>
           </button>
           <div class="ar-title-pill">
             <span>Place</span>
-            <img id="arItemThumb" src="" alt="" width="22" height="22">
-            <strong id="arItemName">Item</strong>
+            <strong id="practiceItemName">Item</strong>
           </div>
           <button class="iconbtn glassy" data-modal="help" aria-label="Help">
             <svg viewBox="0 0 24 24" width="18" height="18"><circle cx="12" cy="12" r="9" fill="none" stroke="currentColor" stroke-width="2"/><path d="M9.5 9.5a2.5 2.5 0 1 1 3.5 2.3c-.8.4-1 .9-1 1.7M12 17v.01" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round"/></svg>
           </button>
         </header>
 
-        <!-- Tap-to-place surface -->
         <div class="ar-surface" id="arSurface" role="button" aria-label="Tap to place item">
           <div class="ar-tap-hint" id="arTapHint">
-            <div class="ar-reticle">
-              <span></span><span></span><span></span><span></span>
-            </div>
-            <p>Tap anywhere on the room to place your <strong id="arHintName">item</strong></p>
+            <div class="ar-reticle"><span></span><span></span><span></span><span></span></div>
+            <p>Tap anywhere to place your <strong id="practiceHintName">item</strong></p>
           </div>
-          <div class="ar-zones" id="arZones"><!-- debug zones, hidden visually --></div>
           <img id="arPlaced" class="ar-placed" alt="placed item">
         </div>
 
-        <div class="ar-bottombar">
+        <div class="ar-bottombar safe-bottom">
           <button class="btn btn-ghost" id="arResetBtn">Reset</button>
-          <button class="btn btn-primary" id="arViewArBtn">View in AR</button>
+          <button class="btn btn-primary" id="arViewArBtn">View real AR</button>
         </div>
       </section>
 
-      <!-- =================== SCREEN: COMPLETE =================== -->
+      <!-- ===================== COMPLETE ===================== -->
       <section class="screen" data-screen="complete">
         <div class="splash-bg complete-bg"></div>
-        <div class="splash-content">
+        <div class="splash-content safe-top safe-bottom">
           <div class="trophy">
             <svg viewBox="0 0 64 64" width="72" height="72">
               <path d="M16 10h32v8a14 14 0 0 1-14 14h-4A14 14 0 0 1 16 18z" fill="#f4a261"/>
@@ -161,11 +178,9 @@
           </div>
           <h1 class="brand-name" style="font-size:32px">Lesson complete!</h1>
           <p class="brand-tag">You placed <strong id="completeCount">0</strong> items.<br>Average score: <strong id="completeScore">0%</strong></p>
-
-          <div class="score-row" id="scoreRow"><!-- per-item scores --></div>
-
+          <div class="score-row" id="scoreRow"></div>
           <button class="btn btn-primary btn-lg" data-go="splash">Start over</button>
-          <button class="btn btn-ghost" data-go="lesson-intro">Review lesson</button>
+          <button class="btn btn-ghost" data-go="category-select">Review lesson</button>
         </div>
       </section>
 
@@ -191,9 +206,9 @@
       <h2 id="helpTitle">How this works</h2>
       <ul class="bullet-list">
         <li><strong>Choose a category</strong> of fire safety equipment.</li>
-        <li><strong>Pick a specific model</strong> — read the hints first.</li>
-        <li><strong>Tap a spot in the room</strong> to place it. We'll evaluate where it ended up.</li>
-        <li>On a real iOS device you can also tap <em>View in AR</em> to drop the 3D model into your own room.</li>
+        <li><strong>Pick a specific model</strong> — read the placement hints first.</li>
+        <li><strong>Tap "View in AR"</strong> on iPhone to drop the actual 3D scan into your real room via AR Quick Look.</li>
+        <li><strong>Or tap "Practice placement"</strong> to use the camera and get scored feedback on placement height.</li>
       </ul>
       <div class="overlay-actions">
         <button class="btn btn-primary" id="helpClose">Got it</button>

@@ -1,6 +1,5 @@
 /* ============================================================
-   FireSafe — mobile-first AR learning app
-   Design tokens
+   FireSafe — design tokens
    ============================================================ */
 :root {
   --c-red: #e63946;
@@ -30,6 +29,10 @@
 
   --font-sans: -apple-system, BlinkMacSystemFont, "SF Pro Display", "Inter", "Segoe UI", system-ui, sans-serif;
   --ease-out: cubic-bezier(0.16, 1, 0.3, 1);
+
+  /* Notch / dynamic island clearance — used everywhere via .safe-top */
+  --safe-top: max(env(safe-area-inset-top, 0px), 44px);
+  --safe-bottom: env(safe-area-inset-bottom, 0px);
 }
 
 * { box-sizing: border-box; }
@@ -45,12 +48,10 @@ body {
   align-items: center;
   justify-content: center;
   overflow: hidden;
-  /* iOS safe area */
-  padding: env(safe-area-inset-top) env(safe-area-inset-right) env(safe-area-inset-bottom) env(safe-area-inset-left);
 }
 
 /* ============================================================
-   Phone frame (desktop only — fades to fullscreen on mobile)
+   Phone frame (desktop only — full-bleed on mobile)
    ============================================================ */
 .phone-frame {
   position: relative;
@@ -100,6 +101,31 @@ body {
   }
   .phone-notch { display: none; }
   .phone-screen { border-radius: 0; }
+}
+
+/* ============================================================
+   Safe area helpers (notch / dynamic island clearance)
+   On the desktop phone-frame mockup, .safe-top adds a fixed 44px
+   so the simulated notch doesn't overlap content.
+   On real iOS devices, env() reports the actual inset.
+   ============================================================ */
+.safe-top { padding-top: var(--safe-top); }
+.safe-bottom { padding-bottom: max(var(--safe-bottom), 16px); }
+
+/* For absolutely positioned bars, we use offset, not padding */
+.ar-topbar.safe-top,
+.topbar.safe-top { padding-top: calc(var(--safe-top) + 8px); }
+.ar-recording-dot.safe-top {
+  top: calc(var(--safe-top) + 4px);
+}
+
+/* When inside the desktop phone-frame, the "notch" is lower (because the
+   frame has 14px padding + 18px notch top + 30px notch height = ~62px). */
+@media (min-width: 481px) {
+  :root {
+    --safe-top: 56px;
+    --safe-bottom: 18px;
+  }
 }
 
 /* ============================================================
@@ -198,16 +224,16 @@ body {
 }
 
 /* ============================================================
-   Top bar (non-AR screens)
+   Top bars
    ============================================================ */
 .topbar {
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 18px 16px 12px;
+  padding: 12px 16px 12px;
   background: var(--c-cream);
-  border-bottom: 1px solid transparent;
   z-index: 2;
+  flex-shrink: 0;
 }
 .topbar-title {
   font-size: 17px;
@@ -228,10 +254,10 @@ body {
   cursor: pointer;
   transition: transform 120ms var(--ease-out), background 120ms;
   padding: 0;
+  flex-shrink: 0;
 }
 .iconbtn:hover { background: var(--c-cream-2); }
 .iconbtn:active { transform: scale(0.94); }
-.iconbtn.invisible { visibility: hidden; }
 .iconbtn.glassy {
   background: rgba(255,255,255,0.85);
   backdrop-filter: blur(12px);
@@ -273,7 +299,6 @@ body {
   font-family: inherit;
   font-size: 15px;
   font-weight: 600;
-  letter-spacing: -0.005em;
   border: none;
   border-radius: var(--r-md);
   padding: 13px 18px;
@@ -303,54 +328,6 @@ body {
   padding: 16px 20px;
   font-size: 16px;
   margin-top: 12px;
-}
-
-/* ============================================================
-   Lesson cards (lesson intro screen)
-   ============================================================ */
-.lesson-card {
-  background: #fff;
-  border: 1px solid var(--c-line);
-  border-radius: var(--r-lg);
-  padding: 18px 18px 16px;
-  margin-bottom: 14px;
-  box-shadow: var(--shadow-sm);
-}
-.lesson-card h3 {
-  font-size: 14px;
-  font-weight: 600;
-  text-transform: uppercase;
-  letter-spacing: 0.06em;
-  color: var(--c-slate);
-  margin: 0 0 10px;
-}
-.bullet-list {
-  margin: 0;
-  padding: 0 0 0 18px;
-  font-size: 15px;
-  line-height: 1.55;
-  color: var(--c-ink);
-}
-.bullet-list li { margin-bottom: 4px; }
-.item-strip {
-  display: grid;
-  grid-template-columns: repeat(4, 1fr);
-  gap: 8px;
-  margin-bottom: 8px;
-}
-.item-strip-cell {
-  background: var(--c-cream-2);
-  border-radius: var(--r-md);
-  aspect-ratio: 1;
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  padding: 8px;
-}
-.item-strip-cell img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
 }
 
 /* ============================================================
@@ -405,9 +382,11 @@ body {
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 10px;
+  padding: 0;
   margin-bottom: 12px;
+  overflow: hidden;
 }
+.cat-thumb model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
 .cat-thumb img {
   max-width: 80%;
   max-height: 90%;
@@ -427,7 +406,7 @@ body {
 }
 .progress-pill {
   position: absolute;
-  bottom: 18px;
+  bottom: 0;
   left: 50%;
   transform: translateX(-50%);
   background: var(--c-ink);
@@ -437,10 +416,11 @@ body {
   font-size: 13px;
   font-weight: 500;
   box-shadow: var(--shadow-md);
+  margin-bottom: 18px;
 }
 
 /* ============================================================
-   Hints & variant grid (item select)
+   Hints & variants
    ============================================================ */
 .hint-stack {
   display: flex;
@@ -485,34 +465,51 @@ body {
   background: #fff;
   border: 1px solid var(--c-line);
   border-radius: var(--r-md);
-  padding: 10px 8px 10px;
+  padding: 8px 6px 10px;
   cursor: pointer;
   font-family: inherit;
   transition: transform 140ms var(--ease-out), border-color 140ms, box-shadow 140ms;
   display: flex;
   flex-direction: column;
   align-items: center;
+  position: relative;
 }
 .variant-card:hover {
   border-color: var(--c-red);
   box-shadow: var(--shadow-sm);
   transform: translateY(-2px);
 }
+.variant-card.placed::after {
+  content: "✓";
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 18px;
+  height: 18px;
+  background: var(--c-success);
+  color: white;
+  font-size: 12px;
+  border-radius: 50%;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+}
 .variant-thumb {
   width: 100%;
   aspect-ratio: 1;
-  background: var(--c-cream-2);
+  background: linear-gradient(180deg, #f5efe1 0%, #e8e0cd 100%);
   border-radius: var(--r-sm);
   display: flex;
   align-items: center;
   justify-content: center;
-  padding: 6px;
+  padding: 0;
   margin-bottom: 8px;
+  overflow: hidden;
 }
-.variant-thumb img {
-  max-width: 100%;
-  max-height: 100%;
-  object-fit: contain;
+.variant-thumb model-viewer {
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
 }
 .variant-name {
   font-size: 12px;
@@ -523,16 +520,120 @@ body {
 }
 
 /* ============================================================
-   AR screen
+   Detail screen — 3D viewer + AR launch
+   ============================================================ */
+.detail-viewer {
+  flex: 1;
+  position: relative;
+  background: linear-gradient(180deg, #f5efe1 0%, #d8d0bc 100%);
+  min-height: 280px;
+  overflow: hidden;
+}
+.detail-viewer model-viewer {
+  width: 100%;
+  height: 100%;
+  --poster-color: transparent;
+}
+.model-loading {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 12px;
+  height: 100%;
+  color: var(--c-slate);
+  font-size: 13px;
+}
+.spinner {
+  width: 32px;
+  height: 32px;
+  border: 3px solid var(--c-cream-2);
+  border-top-color: var(--c-red);
+  border-radius: 50%;
+  animation: spin 0.7s linear infinite;
+}
+@keyframes spin { to { transform: rotate(360deg); } }
+
+.ar-button-slot {
+  /* model-viewer slot button — not visually used; we trigger AR via custom button below */
+  display: none;
+}
+
+.detail-info {
+  background: #fff;
+  border-top: 1px solid var(--c-line);
+  padding: 16px 22px 0;
+  border-radius: var(--r-xl) var(--r-xl) 0 0;
+  margin-top: -18px;
+  position: relative;
+  z-index: 2;
+  box-shadow: 0 -8px 24px rgba(26, 31, 44, 0.06);
+  flex-shrink: 0;
+}
+.detail-info h2 {
+  font-size: 22px;
+  font-weight: 700;
+  margin: 0 0 4px;
+  color: var(--c-ink);
+}
+.detail-class {
+  font-size: 13px;
+  color: var(--c-slate);
+  margin: 0 0 14px;
+  font-weight: 500;
+}
+.placement-tip {
+  background: var(--c-cream-2);
+  border-radius: var(--r-md);
+  padding: 12px 14px;
+  font-size: 13px;
+  color: var(--c-ink);
+  line-height: 1.5;
+  margin-bottom: 16px;
+}
+.placement-tip strong { color: var(--c-red-deep); }
+.action-row {
+  display: flex;
+  gap: 10px;
+  padding-top: 0;
+}
+.action-row .btn { flex: 1; padding: 14px 14px; font-size: 14px; }
+
+/* ============================================================
+   Practice / camera screen
    ============================================================ */
 .ar-screen { background: #1a1f2c; }
-.ar-bg {
+.camera-feed {
   position: absolute;
   inset: 0;
-  background-image: url("assets/img/room-bg.svg");
-  background-size: cover;
-  background-position: center;
-  filter: saturate(0.92) brightness(0.96);
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  background: #0e1118;
+  z-index: 0;
+}
+.camera-fallback {
+  position: absolute;
+  inset: 0;
+  background: linear-gradient(180deg, #2c3242 0%, #1a1f2c 100%);
+  display: none;
+  align-items: center;
+  justify-content: center;
+  z-index: 1;
+  padding: 40px 28px;
+}
+.camera-fallback.show { display: flex; }
+.camera-fallback-inner {
+  text-align: center;
+  color: #fff;
+  max-width: 280px;
+}
+.camera-fallback-inner svg { color: rgba(255,255,255,0.6); margin-bottom: 18px; }
+.camera-fallback-inner p {
+  font-size: 14px;
+  color: rgba(255,255,255,0.7);
+  margin: 0 0 18px;
+  line-height: 1.5;
 }
 .ar-grid {
   position: absolute;
@@ -543,16 +644,16 @@ body {
   background-size: 32px 32px;
   pointer-events: none;
   mix-blend-mode: overlay;
-  opacity: 0.55;
+  opacity: 0.4;
   animation: arGridPulse 3s ease-in-out infinite;
+  z-index: 2;
 }
 @keyframes arGridPulse {
-  0%, 100% { opacity: 0.45; }
-  50% { opacity: 0.7; }
+  0%, 100% { opacity: 0.3; }
+  50% { opacity: 0.55; }
 }
 .ar-recording-dot {
   position: absolute;
-  top: 14px;
   left: 50%;
   transform: translateX(-50%);
   z-index: 10;
@@ -568,7 +669,6 @@ body {
   border-radius: var(--r-pill);
   display: inline-flex;
   align-items: center;
-  margin-top: env(safe-area-inset-top, 0);
 }
 .ar-recording-dot span {
   position: absolute;
@@ -587,14 +687,20 @@ body {
 }
 
 .ar-topbar {
-  position: relative;
+  position: absolute;
+  top: 0;
+  left: 0;
+  right: 0;
   z-index: 11;
   display: flex;
   align-items: center;
   justify-content: space-between;
-  padding: 56px 14px 0;
+  padding-left: 14px;
+  padding-right: 14px;
+  padding-bottom: 0;
   gap: 8px;
 }
+.ar-topbar > * { margin-top: 36px; }
 .ar-title-pill {
   display: inline-flex;
   align-items: center;
@@ -604,12 +710,11 @@ body {
   -webkit-backdrop-filter: blur(12px);
   border-radius: var(--r-pill);
   padding: 8px 14px;
-  font-size: 14px;
+  font-size: 13px;
   color: var(--c-ink);
   box-shadow: var(--shadow-sm);
   max-width: 60%;
 }
-.ar-title-pill img { object-fit: contain; }
 .ar-title-pill strong { font-weight: 600; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 .ar-surface {
@@ -664,7 +769,7 @@ body {
 
 .ar-placed {
   position: absolute;
-  width: 90px;
+  width: 92px;
   height: auto;
   z-index: 7;
   transform: translate(-50%, -100%) scale(0);
@@ -685,7 +790,7 @@ body {
   right: 0;
   bottom: 0;
   z-index: 11;
-  padding: 18px 18px calc(18px + env(safe-area-inset-bottom, 0));
+  padding: 18px 18px;
   display: flex;
   gap: 10px;
   background: linear-gradient(180deg, transparent, rgba(0,0,0,0.4));
@@ -699,7 +804,7 @@ body {
 }
 
 /* ============================================================
-   Overlay (feedback + help)
+   Overlays
    ============================================================ */
 .overlay {
   position: fixed;
@@ -725,7 +830,7 @@ body {
   text-align: center;
   box-shadow: var(--shadow-lg);
   animation: overlaySlide 320ms var(--ease-out);
-  margin-bottom: 16px;
+  margin-bottom: max(16px, env(safe-area-inset-bottom, 0));
 }
 @keyframes overlaySlide {
   from { transform: translateY(40px); opacity: 0; }
@@ -748,7 +853,9 @@ body {
   margin-bottom: 22px;
   font-size: 14px;
   color: var(--c-ink);
+  padding-left: 18px;
 }
+.overlay-card .bullet-list li { margin-bottom: 6px; }
 .overlay-icon {
   width: 64px;
   height: 64px;
@@ -758,18 +865,9 @@ body {
   align-items: center;
   justify-content: center;
 }
-.overlay-icon.success {
-  background: var(--c-success-soft);
-  color: var(--c-success);
-}
-.overlay-icon.fail {
-  background: var(--c-red-soft);
-  color: var(--c-red);
-}
-.overlay-icon.partial {
-  background: var(--c-warn-soft);
-  color: var(--c-warn);
-}
+.overlay-icon.success { background: var(--c-success-soft); color: var(--c-success); }
+.overlay-icon.fail { background: var(--c-red-soft); color: var(--c-red); }
+.overlay-icon.partial { background: var(--c-warn-soft); color: var(--c-warn); }
 .overlay-icon svg { width: 36px; height: 36px; }
 .overlay-actions {
   display: flex;
@@ -778,7 +876,7 @@ body {
 .overlay-actions .btn { flex: 1; }
 
 /* ============================================================
-   Score row (complete screen)
+   Score row (complete)
    ============================================================ */
 .score-row {
   display: grid;
@@ -794,18 +892,11 @@ body {
   padding: 8px 4px;
   text-align: center;
   box-shadow: var(--shadow-sm);
+  overflow: hidden;
 }
-.score-cell img {
-  width: 100%;
-  height: 40px;
-  object-fit: contain;
-}
-.score-cell .pct {
-  font-size: 12px;
-  font-weight: 700;
-  margin-top: 4px;
-  color: var(--c-slate);
-}
+.score-cell model-viewer { width: 100%; height: 50px; --poster-color: transparent; }
+.score-cell img { width: 100%; height: 50px; object-fit: contain; }
+.score-cell .pct { font-size: 12px; font-weight: 700; margin-top: 4px; color: var(--c-slate); }
 .score-cell.good .pct { color: var(--c-success); }
 .score-cell.bad .pct { color: var(--c-red); }
 .score-cell.warn .pct { color: var(--c-warn); }

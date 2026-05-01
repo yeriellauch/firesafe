@@ -21,13 +21,36 @@ gestartet werden kann.
 Der Prototyp besteht aus **sechs Seiten** (mehr als die geforderten drei):
 
 1. **Splash** — Branding, Einstieg in die Lektion
-2. **Lesson Intro** — Lernziele und Item-Übersicht
-3. **Kategorie-Auswahl** — Wahl zwischen Feuerlöscher und Wassereimer
-4. **Modell-Auswahl** — drei Feuerlöscher-Varianten und ein Wassereimer, jeweils mit Hinweis-Karten
-5. **AR-Platzierung** — simulierte Raum-Ansicht mit Tap-to-Place und Feedback
-6. **Lesson Complete** — Übersicht der Bewertungen
+2. **Kategorie-Auswahl** — Wahl zwischen Feuerlöscher und Wassereimer; bereits platzierte Items werden mit Häkchen markiert
+3. **Modell-Auswahl** — drei Feuerlöscher-Varianten und ein Wassereimer, mit echten 3D-Thumbnails und Hinweis-Karten
+4. **Detail / AR-Launch** — voller 3D-Viewer (Rotieren / Zoomen) + Platzierungs-Tipp + Buttons "View in AR" und "Practice placement"
+5. **Practice Mode** — echtes Kamera-Feed (`getUserMedia`) + Tap-to-Place + Bewertung der Höhe (statt fiktivem Klassenraum-Hintergrund)
+6. **Lesson Complete** — Übersicht der Bewertungen pro Item
 
 Zusätzlich: Feedback-Overlay und Hilfe-Modal.
+
+### AR-Implementierung
+
+Der Prototyp nutzt **AR Quick Look** auf iOS Safari für die echte
+AR-Platzierung. Das Originalmodell (`.usdz`) wird via
+`<model-viewer>` mit `ios-src` Attribut eingebunden und über die
+`activateAR()`-Methode bei Tap auf "View in AR" gestartet:
+
+```html
+<model-viewer
+  src="model.glb"
+  ios-src="model.usdz"
+  ar
+  ar-modes="quick-look webxr scene-viewer">
+</model-viewer>
+```
+
+Da nur eines unserer 3D-Modelle als `.glb` vorliegt (das andere
+sind 3D-Scans im `.usdz`-Format), konvertieren wir die `.usdz`-Dateien
+zur Laufzeit im Browser via Three.js `USDZLoader` + `GLTFExporter`,
+sodass `<model-viewer>` sie auch als rotierbare Browser-Vorschau
+rendern kann. Das Original `.usdz` bleibt für AR Quick Look erhalten,
+damit der vollständige Scan mit allen Texturen platziert wird.
 
 ### 3D-Modelle
 
@@ -40,14 +63,16 @@ Es werden **vier 3D-Modelle** eingebunden (die Vorgabe verlangt drei):
 | Modern CO₂ Feuerlöscher | `assets/models/extinguisher_modern.usdz` | USDZ | 3D-Scan des Teams |
 | Wassereimer | `assets/models/water_bucket.usdz` | USDZ | 3D-Scan des Teams |
 
-Die `.usdz`-Dateien werden über AR Quick Look in iOS Safari aufgerufen.
-Der Trigger ist ein dynamisch erzeugtes `<a rel="ar">`-Element:
+Die `.usdz`-Dateien werden über AR Quick Look in iOS Safari aufgerufen,
+ausgelöst über `<model-viewer>`'s `activateAR()`-Methode.
+Als zusätzlicher Fallback (falls model-viewer nicht initialisiert ist)
+gibt es auch eine direkte `<a rel="ar">`-Variante:
 
 ```js
 const a = document.createElement("a");
 a.setAttribute("rel", "ar");
-a.href = variant.modelUSDZ;
-a.appendChild(document.createElement("img")); // von Safari verlangt
+a.href = variant.usdz;
+a.appendChild(document.createElement("img"));
 document.body.appendChild(a);
 a.click();
 ```
@@ -101,6 +126,12 @@ _Screenshot 8: Lesson Complete_
 - **Zwei Hierarchie-Ebenen statt einer:** Kategorie → Variante (statt
   alle Varianten direkt). Das skaliert besser, wenn weitere Geräte
   (Rauchmelder, Notausgangs-Schild …) ergänzt werden.
+- **Echte AR statt simuliertem Klassenraum:** Die ursprüngliche Idee
+  eines fiktiven Klassenraum-Hintergrunds wurde verworfen. Stattdessen
+  startet "View in AR" eine echte AR Quick Look Session, in der das
+  3D-Modell im realen Raum platziert werden kann. Für die Lern-/Feedback-
+  Funktionalität gibt es einen separaten "Practice mode", der das echte
+  Kamerabild des Geräts nutzt (`getUserMedia`).
 - **Kombinierter Done-/Feedback-Screen:** Das ursprüngliche separate
   "Done"-Screen-Konzept wurde in das Feedback-Overlay zusammengezogen,
   damit der Nutzer direkt zur nächsten Auswahl springt.

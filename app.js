@@ -1,10 +1,15 @@
 /* ============================================================
-   FireSafe — app logic
+   FireSafe — app logic v2
    ------------------------------------------------------------
-   Single-page state machine. Six screens, one feedback overlay,
-   one help modal. Placement evaluation is zone-based: each item
-   has a list of normalised rectangles (0–1 coords) with a score
-   and reason. The first matching zone wins.
+   Major changes vs v1:
+   - Real 3D models rendered in-browser via <model-viewer>.
+     For .usdz-only assets we convert to .glb at runtime in the
+     browser (Three.js USDZLoader → GLTFExporter) and feed the
+     resulting blob URL to model-viewer's src attribute.
+   - AR Quick Look is launched via model-viewer's activateAR() —
+     reliable, no more "downloads the file" issue.
+   - Practice mode now uses the device camera (getUserMedia)
+     instead of a fake classroom photo.
    ============================================================ */
 
 const CATALOG = {
@@ -13,41 +18,42 @@ const CATALOG = {
       id: "extinguisher",
       name: "Fire extinguisher",
       desc: "Hand-held suppression unit",
-      thumb: "assets/img/icon_extinguisher_modern.svg",
       hints: [
         { title: "Hint 1", text: "Mount fire extinguishers where they are highly visible and quickly reachable from any seat in the room." },
         { title: "Hint 2", text: "Keep them clear of obstructions like cabinets, doors, or curtains — every second matters in an emergency." },
-        { title: "Hint 3", text: "The recommended mounting height is between 90 cm and 150 cm above the floor (handle height for an average adult)." }
+        { title: "Hint 3", text: "The recommended mounting height is between 90 cm and 150 cm above the floor." }
       ],
       variants: [
         {
           id: "classic",
           name: "Classic powder",
-          icon: "assets/img/icon_extinguisher_classic.svg",
-          modelUSDZ: "assets/models/extinguisher_classic.obj",
-          fireClass: "Class A·B·C — dry powder"
+          glb: "assets/models/extinguisher_classic.glb",
+          usdz: null,                                             // no usdz scan for this one yet
+          fireClass: "Class A·B·C — dry powder",
+          tip: "Mount on a clear wall section near the room exit, at 1.0–1.5 m height. Visible from anywhere in the room."
         },
         {
           id: "modern",
           name: "Modern CO₂",
-          icon: "assets/img/icon_extinguisher_modern.svg",
-          modelUSDZ: "assets/models/extinguisher_modern.usdz",
-          fireClass: "Class B·C — electrical-safe"
+          glb: null,
+          usdz: "assets/models/extinguisher_modern.usdz",
+          fireClass: "Class B·C — electrical-safe",
+          tip: "CO₂ extinguishers belong near electrical equipment. Don't mount above appliances — the cold gas can damage screens."
         },
         {
           id: "bronze",
           name: "Vintage brass",
-          icon: "assets/img/icon_extinguisher_bronze.svg",
-          modelUSDZ: "assets/models/extinguisher_bronze.usdz",
-          fireClass: "Heritage display piece"
+          glb: null,
+          usdz: "assets/models/extinguisher_bronze.usdz",
+          fireClass: "Heritage — display piece",
+          tip: "Decorative units must still be functional. Mount where they're protected but accessible."
         }
       ]
     },
     {
       id: "bucket",
       name: "Water bucket",
-      desc: "Traditional fire-water station",
-      thumb: "assets/img/icon_water_bucket.svg",
+      desc: "Class-A water station",
       hints: [
         { title: "Hint 1", text: "Water buckets are best placed near workshop areas where Class-A combustibles (paper, wood, fabric) are present." },
         { title: "Hint 2", text: "Never place a water bucket near electrical outlets or live equipment — water conducts electricity." }
@@ -56,65 +62,14 @@ const CATALOG = {
         {
           id: "bucket_red",
           name: "Standard bucket",
-          icon: "assets/img/icon_water_bucket.svg",
-          modelUSDZ: "assets/models/water_bucket.usdz",
-          fireClass: "Class A — solids only"
+          glb: null,
+          usdz: "assets/models/water_bucket.usdz",
+          fireClass: "Class A — solids only",
+          tip: "Place at floor level, near the workshop area, well clear of any electrical sockets."
         }
       ]
     }
   ]
-};
-
-/* Placement zones — coordinates are relative (0–1) of the AR surface.
-   Lower x = left, lower y = top. Each item type defines its own zones
-   so the same tap can be ideal for one item and bad for another. */
-const ZONES = {
-  extinguisher: [
-    { x1: 0.05, y1: 0.13, x2: 0.36, y2: 0.36, score: 10, verdict: "fail",
-      title: "On the window",
-      body: "You placed the extinguisher on the window. Windows are emergency exits and shouldn't be blocked. Try a clear wall section instead." },
-    { x1: 0.44, y1: 0.16, x2: 0.94, y2: 0.33, score: 15, verdict: "fail",
-      title: "Mounted on the blackboard",
-      body: "The blackboard is in active use — extinguishers there will be moved or removed. Pick a permanent wall surface." },
-    { x1: 0.76, y1: 0.39, x2: 0.95, y2: 0.74, score: 20, verdict: "fail",
-      title: "Blocking the door",
-      body: "Mounting on a door is a major hazard — the unit moves whenever the door swings, and the door becomes a chokepoint." },
-    { x1: 0.10, y1: 0.55, x2: 0.40, y2: 0.78, score: 30, verdict: "warn",
-      title: "On the desk",
-      body: "Putting it on a desk is convenient now, but it'll be moved within a week. Mount it on the wall so it stays put." },
-    { x1: 0.55, y1: 0.40, x2: 0.74, y2: 0.65, score: 100, verdict: "ok",
-      title: "Excellent placement",
-      body: "Right at chest height, on a clear wall, near the exit and visible from anywhere in the room. Textbook." },
-    { x1: 0.40, y1: 0.40, x2: 0.55, y2: 0.55, score: 90, verdict: "ok",
-      title: "Good placement",
-      body: "Clear wall and accessible. Slightly further from the exit than ideal, but well within standards." },
-    { x1: 0.0, y1: 0.0,  x2: 1.0, y2: 0.18, score: 25, verdict: "warn",
-      title: "Mounted too high",
-      body: "Above 1.5 m, the handle is hard to reach in a panic. Lower it to chest height." },
-    { x1: 0.0, y1: 0.85, x2: 1.0, y2: 1.0,  score: 35, verdict: "warn",
-      title: "On the floor",
-      body: "Floor placement gets kicked, hidden under bags, and forgotten. Always wall-mounted." }
-  ],
-  bucket: [
-    { x1: 0.42, y1: 0.66, x2: 0.50, y2: 0.72, score: 5,  verdict: "fail",
-      title: "Right next to the outlet",
-      body: "Water and electrical outlets don't mix — this would create a real shock hazard. Move it well clear of any sockets." },
-    { x1: 0.10, y1: 0.55, x2: 0.40, y2: 0.78, score: 80, verdict: "ok",
-      title: "Solid choice",
-      body: "Near a workspace where paper and wood are common — this is exactly what a water bucket is for." },
-    { x1: 0.0, y1: 0.85, x2: 1.0, y2: 1.0, score: 90, verdict: "ok",
-      title: "Floor-level — perfect",
-      body: "Buckets belong on the floor, ideally near the workshop area. Quick to grab, no lifting required." },
-    { x1: 0.0, y1: 0.0, x2: 1.0, y2: 0.5, score: 15, verdict: "fail",
-      title: "Too high to reach quickly",
-      body: "A water bucket above shoulder height risks spills and is slow to deploy. Keep it on the floor." }
-  ]
-};
-
-const DEFAULT_VERDICT = {
-  score: 60, verdict: "warn",
-  title: "Acceptable",
-  body: "It works, but it's not where a fire-safety officer would put it. Have another look at the hints and try a different spot."
 };
 
 /* ============================================================
@@ -124,10 +79,74 @@ const state = {
   currentScreen: "splash",
   selectedCategory: null,
   selectedVariant: null,
-  placedAt: null,         // {x, y} normalised
-  results: {},            // categoryId -> { score, verdict, title, body, variantId, x, y }
-  pendingResult: null     // last evaluation, used by feedback overlay
+  placedAt: null,
+  results: {},
+  cameraStream: null
 };
+
+/* GLB blob URL cache (key = variant id) — converted .usdz files */
+const glbCache = {};
+/* Convert promise cache so we don't double-convert */
+const convertPromises = {};
+
+/* ============================================================
+   Three.js dynamic loader (loaded once, on first AR/detail visit)
+   ============================================================ */
+let threeReady = null;
+function loadThreeStack() {
+  if (threeReady) return threeReady;
+  threeReady = (async () => {
+    const THREE = await import("https://unpkg.com/three@0.160.0/build/three.module.js");
+    const { USDZLoader } = await import("https://unpkg.com/three@0.160.0/examples/jsm/loaders/USDZLoader.js");
+    const { GLTFExporter } = await import("https://unpkg.com/three@0.160.0/examples/jsm/exporters/GLTFExporter.js");
+    return { THREE, USDZLoader, GLTFExporter };
+  })();
+  return threeReady;
+}
+
+/* Convert a .usdz file at the given URL to a .glb blob URL.
+   Result is cached per variant. */
+async function getGlbForVariant(variant) {
+  if (variant.glb) return variant.glb;          // already .glb
+  if (!variant.usdz) return null;
+  if (glbCache[variant.id]) return glbCache[variant.id];
+  if (convertPromises[variant.id]) return convertPromises[variant.id];
+
+  convertPromises[variant.id] = (async () => {
+    const { THREE, USDZLoader, GLTFExporter } = await loadThreeStack();
+    return new Promise((resolve, reject) => {
+      const loader = new USDZLoader();
+      loader.load(
+        variant.usdz,
+        (group) => {
+          // Center & normalise scale so the model fits a 1m bounding box
+          const box = new THREE.Box3().setFromObject(group);
+          const size = box.getSize(new THREE.Vector3());
+          const center = box.getCenter(new THREE.Vector3());
+          group.position.sub(center);
+          const maxDim = Math.max(size.x, size.y, size.z) || 1;
+          group.scale.setScalar(0.6 / maxDim);
+
+          const exporter = new GLTFExporter();
+          exporter.parse(
+            group,
+            (gltfBinary) => {
+              const blob = new Blob([gltfBinary], { type: "model/gltf-binary" });
+              const url = URL.createObjectURL(blob);
+              glbCache[variant.id] = url;
+              resolve(url);
+            },
+            (err) => reject(err),
+            { binary: true }
+          );
+        },
+        undefined,
+        (err) => reject(err)
+      );
+    });
+  })();
+  return convertPromises[variant.id];
+}
 
 /* ============================================================
    Navigation
@@ -141,46 +160,45 @@ function go(screenId) {
     current.classList.remove("active");
     current.classList.add("exit-left");
     setTimeout(() => current.classList.remove("exit-left"), 320);
+    // Stop camera if leaving practice screen
+    if (current.dataset.screen === "practice") stopCamera();
   }
   next.classList.add("active");
   state.currentScreen = screenId;
 
-  // Hooks per screen
   if (screenId === "category-select") renderCategoryGrid();
   if (screenId === "item-select") renderItemSelect();
-  if (screenId === "ar") renderArScreen();
+  if (screenId === "detail") renderDetail();
+  if (screenId === "practice") renderPractice();
   if (screenId === "complete") renderComplete();
 }
 
 document.addEventListener("click", (e) => {
   const tgt = e.target.closest("[data-go]");
-  if (tgt) {
-    e.preventDefault();
-    go(tgt.dataset.go);
-  }
+  if (tgt) { e.preventDefault(); go(tgt.dataset.go); }
   const modalTrigger = e.target.closest("[data-modal]");
-  if (modalTrigger) {
-    showOverlay(modalTrigger.dataset.modal === "help" ? "helpOverlay" : null);
-  }
+  if (modalTrigger) showOverlay(modalTrigger.dataset.modal === "help" ? "helpOverlay" : null);
 });
 
 /* ============================================================
-   Category grid
+   Category grid (with mini 3D thumbnails)
    ============================================================ */
 function renderCategoryGrid() {
   const grid = document.getElementById("categoryGrid");
   grid.innerHTML = CATALOG.categories.map(cat => {
     const placed = state.results[cat.id];
+    const heroVariant = cat.variants[0];
     return `
       <button class="cat-card ${placed ? "placed" : ""}" data-cat="${cat.id}">
-        <div class="cat-thumb"><img src="${cat.thumb}" alt=""></div>
+        <div class="cat-thumb" data-thumb-variant="${heroVariant.id}">
+          ${makeThumbViewer(heroVariant, "cat-" + cat.id)}
+        </div>
         <p class="cat-name">${cat.name}</p>
         <p class="cat-desc">${cat.desc}</p>
       </button>
     `;
   }).join("");
 
-  // Wire up category selection
   grid.querySelectorAll(".cat-card").forEach(card => {
     card.addEventListener("click", () => {
       state.selectedCategory = card.dataset.cat;
@@ -188,33 +206,66 @@ function renderCategoryGrid() {
     });
   });
 
+  // Hydrate thumbnails (load model URLs)
+  CATALOG.categories.forEach(cat => hydrateThumb(cat.variants[0], "cat-" + cat.id));
+
   // Progress text
   const placed = Object.keys(state.results).length;
   const total = CATALOG.categories.length;
-  document.getElementById("progressText").textContent =
-    placed === total
-      ? `All ${total} placed — review or finish`
-      : `${placed} of ${total} placed`;
-
-  // If everything placed, show "Finish" pill action
+  const pt = document.getElementById("progressText");
   if (placed === total) {
-    document.getElementById("progressText").innerHTML =
-      `All ${total} placed · <a href="#" id="finishLink" style="color:#f4a261;font-weight:600">Finish lesson →</a>`;
+    pt.innerHTML = `All ${total} placed · <a href="#" id="finishLink" style="color:#f4a261;font-weight:600">Finish lesson →</a>`;
     setTimeout(() => {
       const fl = document.getElementById("finishLink");
       if (fl) fl.addEventListener("click", (e) => { e.preventDefault(); go("complete"); });
     }, 0);
+  } else {
+    pt.textContent = `${placed} of ${total} placed`;
+  }
+}
+
+/* Helper: build a small <model-viewer> that auto-rotates a model thumbnail.
+   We start with no src (will be hydrated after .usdz → .glb conversion). */
+function makeThumbViewer(variant, idSuffix) {
+  return `
+    <model-viewer
+      id="mv-${idSuffix}"
+      auto-rotate
+      auto-rotate-delay="500"
+      rotation-per-second="30deg"
+      disable-zoom
+      interaction-prompt="none"
+      shadow-intensity="0.8"
+      exposure="1.1"
+      environment-image="neutral"
+      camera-orbit="0deg 75deg 1.6m"
+      style="width:100%;height:100%;background:transparent;">
+      <div slot="poster" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
+        <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
+      </div>
+    </model-viewer>
+  `;
+}
+
+async function hydrateThumb(variant, idSuffix) {
+  const mv = document.getElementById("mv-" + idSuffix);
+  if (!mv) return;
+  try {
+    const glbUrl = await getGlbForVariant(variant);
+    if (glbUrl) mv.src = glbUrl;
+  } catch (err) {
+    console.warn("thumb hydrate failed", variant.id, err);
   }
 }
 
 /* ============================================================
-   Item select (variants + hints)
+   Item select (with hint cards + 3D thumbnails per variant)
    ============================================================ */
 function renderItemSelect() {
   const cat = CATALOG.categories.find(c => c.id === state.selectedCategory);
   if (!cat) return;
 
-  document.getElementById("itemSelectTitle").textContent = `Choose a ${cat.name.toLowerCase()}`;
+  document.getElementById("itemSelectTitle").textContent = `Choose ${cat.name.toLowerCase()}`;
 
   const hintStack = document.getElementById("hintStack");
   hintStack.innerHTML = cat.hints.map(h =>
@@ -222,62 +273,127 @@ function renderItemSelect() {
   ).join("");
 
   const variantGrid = document.getElementById("variantGrid");
-  // Adapt grid columns to count
   variantGrid.style.gridTemplateColumns = `repeat(${Math.min(cat.variants.length, 3)}, 1fr)`;
-
-  variantGrid.innerHTML = cat.variants.map(v =>
-    `<button class="variant-card" data-variant="${v.id}">
-       <div class="variant-thumb"><img src="${v.icon}" alt=""></div>
-       <span class="variant-name">${v.name}</span>
-     </button>`
-  ).join("");
+  variantGrid.innerHTML = cat.variants.map(v => {
+    const placed = state.results[cat.id] && state.results[cat.id].variantId === v.id;
+    return `
+      <button class="variant-card ${placed ? "placed" : ""}" data-variant="${v.id}">
+        <div class="variant-thumb">${makeThumbViewer(v, "var-" + v.id)}</div>
+        <span class="variant-name">${v.name}</span>
+      </button>
+    `;
+  }).join("");
 
   variantGrid.querySelectorAll(".variant-card").forEach(card => {
     card.addEventListener("click", () => {
       state.selectedVariant = card.dataset.variant;
-      go("ar");
+      go("detail");
     });
   });
+
+  cat.variants.forEach(v => hydrateThumb(v, "var-" + v.id));
 }
 
 /* ============================================================
-   AR placement screen
+   Detail screen — large rotatable 3D viewer + AR launch
    ============================================================ */
-function renderArScreen() {
+async function renderDetail() {
   const cat = CATALOG.categories.find(c => c.id === state.selectedCategory);
   const variant = cat?.variants.find(v => v.id === state.selectedVariant);
   if (!cat || !variant) return;
 
-  // Reset placement state
+  document.getElementById("detailTitle").textContent = cat.name;
+  document.getElementById("detailName").textContent = variant.name;
+  document.getElementById("detailClass").textContent = variant.fireClass;
+  document.getElementById("placementTipText").textContent = variant.tip;
+
+  const mv = document.getElementById("detailViewer");
+
+  // Reset attributes
+  mv.removeAttribute("src");
+  mv.removeAttribute("ios-src");
+
+  // ios-src: use the original .usdz (preserves full scan for AR Quick Look)
+  if (variant.usdz) {
+    mv.setAttribute("ios-src", variant.usdz);
+  }
+
+  // src: use direct .glb if available, else convert from .usdz at runtime
+  try {
+    const glbUrl = await getGlbForVariant(variant);
+    if (glbUrl) {
+      mv.src = glbUrl;
+    }
+  } catch (err) {
+    console.error("Could not load model for", variant.id, err);
+  }
+
+  // Wire AR launch button — calls model-viewer's activateAR()
+  const launchBtn = document.getElementById("launchArBtn");
+  launchBtn.onclick = async () => {
+    // model-viewer must have loaded before activateAR works reliably
+    if (!mv.canActivateAR) {
+      // Fallback for browsers / situations where model-viewer can't activate AR
+      if (variant.usdz && /iPad|iPhone|iPod/.test(navigator.userAgent)) {
+        // Direct AR Quick Look on iOS Safari
+        const a = document.createElement("a");
+        a.setAttribute("rel", "ar");
+        a.href = variant.usdz;
+        const img = document.createElement("img");
+        img.style.display = "none";
+        a.appendChild(img);
+        document.body.appendChild(a);
+        a.click();
+        setTimeout(() => a.remove(), 100);
+      } else {
+        alert("AR is only available on iOS Safari (AR Quick Look) or Android Chrome (Scene Viewer). On desktop, you can rotate the model with your mouse.");
+      }
+      return;
+    }
+    try {
+      await mv.activateAR();
+    } catch (err) {
+      console.warn("activateAR failed", err);
+      alert("Couldn't launch AR. On iPhone, please open this page in Safari (not Chrome).");
+    }
+  };
+}
+
+/* ============================================================
+   Practice mode — camera feed + tap to place + feedback
+   ============================================================ */
+async function renderPractice() {
+  const cat = CATALOG.categories.find(c => c.id === state.selectedCategory);
+  const variant = cat?.variants.find(v => v.id === state.selectedVariant);
+  if (!cat || !variant) return;
+
+  document.getElementById("practiceItemName").textContent = variant.name;
+  document.getElementById("practiceHintName").textContent = variant.name.toLowerCase();
+
+  // Reset placement
   state.placedAt = null;
   document.getElementById("arTapHint").classList.remove("hidden");
   const placedImg = document.getElementById("arPlaced");
   placedImg.classList.remove("show");
   placedImg.style.display = "none";
 
-  // Title pill
-  document.getElementById("arItemThumb").src = variant.icon;
-  document.getElementById("arItemName").textContent = variant.name;
-  document.getElementById("arHintName").textContent = variant.name.toLowerCase();
-  placedImg.src = variant.icon;
-  placedImg.alt = variant.name;
+  // Use the variant's poster — render the GLB to a 2D image overlay
+  const glbUrl = await getGlbForVariant(variant);
+  if (glbUrl) {
+    const posterUrl = await renderModelToPng(glbUrl);
+    placedImg.src = posterUrl;
+  }
 
-  // Wire AR Quick Look button (iOS only — opens the .usdz)
-  const arBtn = document.getElementById("arViewArBtn");
-  arBtn.onclick = () => {
-    // Anchor with rel="ar" triggers AR Quick Look on iOS Safari.
-    const a = document.createElement("a");
-    a.setAttribute("rel", "ar");
-    a.href = variant.modelUSDZ;
-    const img = document.createElement("img");
-    img.src = variant.icon;
-    a.appendChild(img);
-    document.body.appendChild(a);
-    a.click();
-    setTimeout(() => a.remove(), 100);
+  // Start camera
+  await startCamera();
+
+  // AR launch button (jump straight to real AR)
+  document.getElementById("arViewArBtn").onclick = () => {
+    go("detail");
+    setTimeout(() => document.getElementById("launchArBtn").click(), 400);
   };
 
-  // Wire reset button
+  // Reset
   document.getElementById("arResetBtn").onclick = () => {
     placedImg.classList.remove("show");
     placedImg.style.display = "none";
@@ -286,12 +402,89 @@ function renderArScreen() {
   };
 }
 
-/* Tap-to-place handler (attached once on load) */
+async function startCamera() {
+  const video = document.getElementById("cameraFeed");
+  const fallback = document.getElementById("cameraFallback");
+  fallback.classList.remove("show");
+  if (state.cameraStream) {
+    video.srcObject = state.cameraStream;
+    return;
+  }
+  try {
+    const stream = await navigator.mediaDevices.getUserMedia({
+      video: { facingMode: { ideal: "environment" } },
+      audio: false
+    });
+    state.cameraStream = stream;
+    video.srcObject = stream;
+    video.style.display = "block";
+  } catch (err) {
+    console.warn("camera denied", err);
+    video.style.display = "none";
+    fallback.classList.add("show");
+    document.getElementById("cameraRetryBtn").onclick = () => startCamera();
+  }
+}
+
+function stopCamera() {
+  if (state.cameraStream) {
+    state.cameraStream.getTracks().forEach(t => t.stop());
+    state.cameraStream = null;
+  }
+  const video = document.getElementById("cameraFeed");
+  if (video) video.srcObject = null;
+}
+
+/* Render a .glb model to a transparent PNG using an off-screen model-viewer.
+   We use this to get a "sticker" image of the model for the practice overlay. */
+const posterCache = {};
+async function renderModelToPng(glbUrl) {
+  if (posterCache[glbUrl]) return posterCache[glbUrl];
+
+  return new Promise((resolve) => {
+    const offscreen = document.createElement("model-viewer");
+    offscreen.style.position = "absolute";
+    offscreen.style.left = "-9999px";
+    offscreen.style.width = "240px";
+    offscreen.style.height = "240px";
+    offscreen.setAttribute("camera-orbit", "0deg 75deg 1.4m");
+    offscreen.setAttribute("environment-image", "neutral");
+    offscreen.setAttribute("exposure", "1.1");
+    offscreen.setAttribute("shadow-intensity", "0");
+    offscreen.style.background = "transparent";
+    offscreen.src = glbUrl;
+    document.body.appendChild(offscreen);
+
+    offscreen.addEventListener("load", async () => {
+      try {
+        const blob = await offscreen.toBlob({ idealAspect: true, mimeType: "image/png" });
+        const url = URL.createObjectURL(blob);
+        posterCache[glbUrl] = url;
+        resolve(url);
+      } catch (err) {
+        console.warn("toBlob failed", err);
+        resolve(glbUrl);  // fallback: just use the glb url (won't render as img)
+      }
+      offscreen.remove();
+    }, { once: true });
+
+    // Safety timeout
+    setTimeout(() => {
+      if (!posterCache[glbUrl]) {
+        console.warn("poster render timed out for", glbUrl);
+        resolve("");
+        offscreen.remove();
+      }
+    }, 8000);
+  });
+}
+
+/* Tap to place — attached once on boot */
 function attachArSurface() {
   const surface = document.getElementById("arSurface");
   surface.addEventListener("click", (e) => {
-    if (state.currentScreen !== "ar") return;
-    if (state.placedAt) return; // already placed
+    if (state.currentScreen !== "practice") return;
+    if (state.placedAt) return;
 
     const rect = surface.getBoundingClientRect();
     const xRel = (e.clientX - rect.left) / rect.width;
@@ -305,35 +498,46 @@ function attachArSurface() {
     requestAnimationFrame(() => placedImg.classList.add("show"));
     document.getElementById("arTapHint").classList.add("hidden");
 
-    // Evaluate after small delay so the "drop" animation reads
     setTimeout(() => evaluatePlacement(xRel, yRel), 700);
   });
 }
 
 /* ============================================================
-   Placement evaluation
+   Placement evaluation — height-based since we use real camera
    ============================================================ */
 function evaluatePlacement(x, y) {
   const cat = CATALOG.categories.find(c => c.id === state.selectedCategory);
   const variant = cat.variants.find(v => v.id === state.selectedVariant);
-  const zones = ZONES[cat.id] || [];
-  let result = null;
+  let result;
 
-  for (const z of zones) {
-    if (x >= z.x1 && x <= z.x2 && y >= z.y1 && y <= z.y2) {
-      result = { ...z };
-      break;
+  if (cat.id === "extinguisher") {
+    if (y < 0.18) {
+      result = { score: 25, title: "Mounted too high", body: "Above 1.5 m the handle is hard to reach in a panic. Lower it to chest height." };
+    } else if (y > 0.82) {
+      result = { score: 35, title: "On the floor", body: "Floor placement gets kicked, hidden under bags, and forgotten. Always wall-mount fire extinguishers." };
+    } else if (y >= 0.35 && y <= 0.65) {
+      result = { score: 100, title: "Excellent placement", body: "Right at chest height — anyone in the room can grab it in seconds. Textbook." };
+    } else if (y < 0.35) {
+      result = { score: 70, title: "A bit high", body: "Slightly above ideal. Bringing it down a notch makes it easier to grab in a hurry." };
+    } else {
+      result = { score: 70, title: "A bit low", body: "Workable, but the handle is below comfortable grab height. Aim higher next time." };
     }
+  } else if (cat.id === "bucket") {
+    if (y < 0.5) {
+      result = { score: 15, title: "Too high to reach quickly", body: "A water bucket above shoulder height risks spills and is slow to deploy. Keep it on the floor." };
+    } else if (y > 0.75) {
+      result = { score: 95, title: "Floor-level — perfect", body: "Buckets belong on the floor near the workshop area. Quick to grab, no lifting required." };
+    } else {
+      result = { score: 60, title: "Acceptable", body: "Workable, but a water bucket is best on the floor. Move it lower." };
+    }
+  } else {
+    result = { score: 60, title: "Placed", body: "Have a look at the hints to refine the placement." };
   }
-  if (!result) result = { ...DEFAULT_VERDICT };
 
   result.variantId = variant.id;
   result.x = x;
   result.y = y;
-
-  // Save and show feedback
   state.results[cat.id] = result;
-  state.pendingResult = result;
   showFeedback(result);
 }
 
@@ -362,7 +566,7 @@ function showFeedback(result) {
 }
 
 /* ============================================================
-   Overlay management
+   Overlays
    ============================================================ */
 function showOverlay(id) {
   document.querySelectorAll(".overlay").forEach(o => o.classList.remove("show"));
@@ -373,18 +577,14 @@ function showOverlay(id) {
 
 document.getElementById("feedbackContinue").addEventListener("click", () => {
   showOverlay(null);
-  // Return to category select to pick the next item
   go("category-select");
 });
 document.getElementById("feedbackRetry").addEventListener("click", () => {
   showOverlay(null);
-  // Reset placement, stay on AR
   delete state.results[state.selectedCategory];
   document.getElementById("arResetBtn").click();
 });
 document.getElementById("helpClose").addEventListener("click", () => showOverlay(null));
-
-// Click outside overlay-card to dismiss help
 document.querySelectorAll(".overlay").forEach(o => {
   o.addEventListener("click", (e) => {
     if (e.target === o && o.id === "helpOverlay") showOverlay(null);
@@ -392,14 +592,12 @@ document.querySelectorAll(".overlay").forEach(o => {
 });
 
 /* ============================================================
-   Complete screen
+   Complete
    ============================================================ */
 function renderComplete() {
   const ids = Object.keys(state.results);
   const count = ids.length;
-  const avg = count
-    ? Math.round(ids.reduce((s, id) => s + state.results[id].score, 0) / count)
-    : 0;
+  const avg = count ? Math.round(ids.reduce((s, id) => s + state.results[id].score, 0) / count) : 0;
   document.getElementById("completeCount").textContent = count;
   document.getElementById("completeScore").textContent = avg + "%";
 
@@ -408,15 +606,24 @@ function renderComplete() {
     const r = state.results[cat.id];
     if (!r) {
       return `<div class="score-cell" style="opacity:0.4">
-        <img src="${cat.thumb}" alt=""><div class="pct">—</div>
+        <div style="height:50px;display:flex;align-items:center;justify-content:center;color:#bbb;font-size:24px;">·</div>
+        <div class="pct">—</div>
       </div>`;
     }
     const variant = cat.variants.find(v => v.id === r.variantId);
     const cls = r.score >= 70 ? "good" : r.score >= 40 ? "warn" : "bad";
     return `<div class="score-cell ${cls}">
-      <img src="${variant.icon}" alt=""><div class="pct">${r.score}%</div>
+      ${makeThumbViewer(variant, "score-" + cat.id)}
+      <div class="pct">${r.score}%</div>
     </div>`;
   }).join("");
+
+  CATALOG.categories.forEach(cat => {
+    const r = state.results[cat.id];
+    if (!r) return;
+    const variant = cat.variants.find(v => v.id === r.variantId);
+    hydrateThumb(variant, "score-" + cat.id);
+  });
 }
 
 /* ============================================================
