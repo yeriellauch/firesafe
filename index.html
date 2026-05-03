@@ -61,7 +61,10 @@
           <p class="hero-sub">Pick a category, then choose a specific 3D-scanned model.</p>
           <div class="cat-grid" id="categoryGrid"></div>
         </div>
-        <div class="progress-pill safe-bottom"><span id="progressText">0 of 4 placed</span></div>
+        <div class="finish-bar safe-bottom">
+          <p id="progressText" class="progress-text">0 of 4 placed</p>
+          <button class="btn btn-primary finish-btn" id="finishBtn" data-go="complete">Finish lesson</button>
+        </div>
       </section>
 
       <!-- ===================== ITEM (VARIANT) SELECT ===================== -->
@@ -95,6 +98,10 @@
         </header>
 
         <div class="detail-viewer">
+          <div id="detailNoPreview" style="display:none;position:absolute;inset:0;z-index:2;flex-direction:column;align-items:center;justify-content:center;gap:12px;color:#888;background:inherit;">
+            <svg viewBox="0 0 48 48" width="52" height="52" fill="none" stroke="currentColor" stroke-width="1.5" opacity="0.4"><path d="M24 4C20 16 10 20 10 32a14 14 0 0 0 28 0c0-7-5-12-7-17-3 9-7 9-7-11z" stroke-linecap="round" stroke-linejoin="round"/></svg>
+            <p style="font-size:13px;text-align:center;padding:0 24px;line-height:1.5;margin:0">3D preview not available on this device.<br>Tap <strong>View in AR</strong> on iPhone to see it.</p>
+          </div>
           <model-viewer
             id="detailViewer"
             camera-controls
@@ -174,23 +181,22 @@
 
       <!-- ===================== COMPLETE ===================== -->
       <section class="screen" data-screen="complete">
-        <div class="splash-bg complete-bg"></div>
         <div class="splash-content safe-top safe-bottom">
           <div class="trophy">
             <svg viewBox="0 0 64 64" width="72" height="72">
-              <path d="M16 10h32v8a14 14 0 0 1-14 14h-4A14 14 0 0 1 16 18z" fill="#f4a261"/>
-              <path d="M48 14h6a4 4 0 0 1 4 4v4a8 8 0 0 1-8 8" fill="none" stroke="#f4a261" stroke-width="3"/>
-              <path d="M16 14h-6a4 4 0 0 0-4 4v4a8 8 0 0 0 8 8" fill="none" stroke="#f4a261" stroke-width="3"/>
-              <rect x="22" y="34" width="20" height="6" fill="#c97a3b"/>
-              <rect x="18" y="40" width="28" height="6" fill="#a35d28"/>
-              <rect x="14" y="48" width="36" height="6" rx="2" fill="#5c6470"/>
+              <path d="M16 10h32v8a14 14 0 0 1-14 14h-4A14 14 0 0 1 16 18z" fill="#FFDADA"/>
+              <path d="M48 14h6a4 4 0 0 1 4 4v4a8 8 0 0 1-8 8" fill="none" stroke="#FFDADA" stroke-width="3"/>
+              <path d="M16 14h-6a4 4 0 0 0-4 4v4a8 8 0 0 0 8 8" fill="none" stroke="#FFDADA" stroke-width="3"/>
+              <rect x="22" y="34" width="20" height="6" fill="#e8a0a0"/>
+              <rect x="18" y="40" width="28" height="6" fill="#d48080"/>
+              <rect x="14" y="48" width="36" height="6" rx="2" fill="#5c1a1a"/>
             </svg>
           </div>
-          <h1 class="brand-name" style="font-size:32px">Lesson complete!</h1>
+          <h1 class="complete-title">Lesson complete!</h1>
           <p class="brand-tag">You placed <strong id="completeCount">0</strong> items.<br>Average score: <strong id="completeScore">0%</strong></p>
           <div class="score-row" id="scoreRow"></div>
-          <button class="btn btn-primary btn-lg" data-go="splash">Start over</button>
-          <button class="btn btn-ghost" data-go="category-select">Review lesson</button>
+          <button class="btn btn-primary btn-lg" data-go="splash" data-reset="true">Start over</button>
+          <button class="btn btn-ghost btn-lg" data-go="category-select">Review lesson</button>
         </div>
       </section>
 

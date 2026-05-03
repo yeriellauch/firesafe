@@ -175,7 +175,15 @@ function go(screenId) {
 
 document.addEventListener("click", (e) => {
   const tgt = e.target.closest("[data-go]");
-  if (tgt) { e.preventDefault(); go(tgt.dataset.go); }
+  if (tgt) {
+    e.preventDefault();
+    if (tgt.dataset.reset) {
+      state.results = {};
+      state.selectedCategory = null;
+      state.selectedVariant = null;
+    }
+    go(tgt.dataset.go);
+  }
   const modalTrigger = e.target.closest("[data-modal]");
   if (modalTrigger) showOverlay(modalTrigger.dataset.modal === "help" ? "helpOverlay" : null);
 });
@@ -213,14 +221,13 @@ function renderCategoryGrid() {
   const placed = Object.keys(state.results).length;
   const total = CATALOG.categories.length;
   const pt = document.getElementById("progressText");
+  const finishBtn = document.getElementById("finishBtn");
   if (placed === total) {
-    pt.innerHTML = `All ${total} placed · <a href="#" id="finishLink" style="color:#f4a261;font-weight:600">Finish lesson →</a>`;
-    setTimeout(() => {
-      const fl = document.getElementById("finishLink");
-      if (fl) fl.addEventListener("click", (e) => { e.preventDefault(); go("complete"); });
-    }, 0);
+    pt.textContent = `All ${total} placed!`;
+    if (finishBtn) finishBtn.style.display = "flex";
   } else {
     pt.textContent = `${placed} of ${total} placed`;
+    if (finishBtn) finishBtn.style.display = "none";
   }
 }
 

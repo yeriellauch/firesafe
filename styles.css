@@ -176,12 +176,6 @@ body {
   width: 100%;
   height: 100%;
 }
-.complete-bg {
-  background-color: #fff;
-  background-image: radial-gradient(ellipse 60% 40% at 50% 15%, var(--c-pink-soft) 0%, transparent 70%),
-    radial-gradient(ellipse 40% 30% at 10% 90%, var(--c-pink) 0%, transparent 60%),
-    radial-gradient(ellipse 35% 25% at 90% 85%, var(--c-pink) 0%, transparent 60%);
-}
 .splash-content {
   position: relative;
   z-index: 1;
@@ -219,6 +213,13 @@ body {
   color: var(--c-slate);
   margin: 0 0 28px;
   line-height: 1.5;
+}
+.complete-title {
+  font-size: 32px;
+  font-weight: 700;
+  letter-spacing: -0.01em;
+  margin: 0;
+  color: #5c1a1a;
 }
 .splash-foot {
   font-size: 13px;
@@ -402,7 +403,8 @@ body {
 }
 .cat-thumb {
   width: 100%;
-  aspect-ratio: 1.1;
+  aspect-ratio: 1.6;
+  max-height: 100px;
   background: var(--c-cream-2);
   border-radius: var(--r-md);
   display: flex;
@@ -413,6 +415,11 @@ body {
   overflow: hidden;
 }
 .cat-thumb model-viewer { width: 100%; height: 100%; --poster-color: transparent; }
+.thumb-no-preview {
+  width: 100%; height: 100%;
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0.3; color: var(--c-ink);
+}
 .cat-thumb img {
   max-width: 80%;
   max-height: 90%;
@@ -430,19 +437,25 @@ body {
   margin: 0;
   line-height: 1.4;
 }
-.progress-pill {
-  position: absolute;
-  bottom: 0;
-  left: 50%;
-  transform: translateX(-50%);
-  background: var(--c-ink);
-  color: #fff;
-  padding: 8px 16px;
-  border-radius: var(--r-pill);
+.finish-bar {
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 10px;
+  padding: 12px 22px;
+  border-top: 1px solid var(--c-pink-deep);
+  background: var(--c-pink);
+}
+.progress-text {
   font-size: 13px;
   font-weight: 500;
-  box-shadow: var(--shadow-md);
-  margin-bottom: 18px;
+  color: var(--c-ink);
+  margin: 0;
+}
+.finish-btn {
+  display: none;
+  width: 100%;
 }
 
 /* ============================================================
@@ -523,6 +536,7 @@ body {
 .variant-thumb {
   width: 100%;
   aspect-ratio: 1;
+  max-height: 90px;
   background: linear-gradient(180deg, #f2f2f2 0%, #e4e4e4 100%);
   border-radius: var(--r-sm);
   display: flex;
@@ -912,8 +926,8 @@ body {
   margin: 18px 0 24px;
 }
 .score-cell {
-  background: #fff;
-  border: 1px solid var(--c-line);
+  background: rgba(255,255,255,0.75);
+  border: 1px solid var(--c-pink-deep);
   border-radius: var(--r-md);
   padding: 8px 4px;
   text-align: center;
