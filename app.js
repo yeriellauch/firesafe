@@ -35,7 +35,7 @@ const CATALOG = {
         {
           id: "modern",
           name: "Modern CO₂",
-          glb: null,
+          glb: "assets/models/extinguisher_modern.glb",
           usdz: "assets/models/extinguisher_modern.usdz",
           fireClass: "Class B·C — electrical-safe",
           tip: "CO₂ extinguishers belong near electrical equipment. Don't mount above appliances — the cold gas can damage screens."
@@ -43,7 +43,7 @@ const CATALOG = {
         {
           id: "bronze",
           name: "Vintage brass",
-          glb: null,
+          glb: "assets/models/extinguisher_bronze.glb",
           usdz: "assets/models/extinguisher_bronze.usdz",
           fireClass: "Heritage — display piece",
           tip: "Decorative units must still be functional. Mount where they're protected but accessible."
@@ -62,7 +62,7 @@ const CATALOG = {
         {
           id: "bucket_red",
           name: "Standard bucket",
-          glb: null,
+          glb: "assets/models/water_bucket.glb",
           usdz: "assets/models/water_bucket.usdz",
           fireClass: "Class A — solids only",
           tip: "Place at floor level, near the workshop area, well clear of any electrical sockets."
@@ -238,7 +238,6 @@ function makeThumbViewer(variant, idSuffix) {
       shadow-intensity="0.8"
       exposure="1.1"
       environment-image="neutral"
-      camera-orbit="0deg 75deg 1.6m"
       style="width:100%;height:100%;background:transparent;">
       <div slot="poster" style="width:100%;height:100%;display:flex;align-items:center;justify-content:center;">
         <div class="spinner" style="width:20px;height:20px;border-width:2px;"></div>
@@ -253,8 +252,17 @@ async function hydrateThumb(variant, idSuffix) {
   try {
     const glbUrl = await getGlbForVariant(variant);
     if (glbUrl) mv.src = glbUrl;
+    else throw new Error("no url");
   } catch (err) {
     console.warn("thumb hydrate failed", variant.id, err);
+    const container = mv.parentElement;
+    if (container) {
+      container.innerHTML = `<div class="thumb-no-preview">
+        <svg viewBox="0 0 24 24" width="34" height="34" fill="none" stroke="currentColor" stroke-width="1.5" stroke-linecap="round" stroke-linejoin="round">
+          <path d="M12 2C10 8 5 10 5 16a7 7 0 0 0 14 0c0-3.5-2.5-6-3.5-8.5-1.5 5-3.5 5-3.5-5.5z"/>
+        </svg>
+      </div>`;
+    }
   }
 }
 
@@ -308,24 +316,29 @@ async function renderDetail() {
   document.getElementById("placementTipText").textContent = variant.tip;
 
   const mv = document.getElementById("detailViewer");
+  const noPreview = document.getElementById("detailNoPreview");
 
-  // Reset attributes
-  mv.removeAttribute("src");
+  // Properly clear the previous model (removeAttribute alone doesn't reset the WebGL scene)
+  mv.src = "";
   mv.removeAttribute("ios-src");
+  if (noPreview) noPreview.style.display = "none";
 
-  // ios-src: use the original .usdz (preserves full scan for AR Quick Look)
+  // ios-src: use the original .usdz (preserves full scan for AR Quick Look on iOS)
   if (variant.usdz) {
     mv.setAttribute("ios-src", variant.usdz);
   }
 
-  // src: use direct .glb if available, else convert from .usdz at runtime
+  // src: use direct .glb if available, else attempt runtime USDZ→GLB conversion
   try {
     const glbUrl = await getGlbForVariant(variant);
     if (glbUrl) {
       mv.src = glbUrl;
+    } else {
+      if (noPreview) noPreview.style.display = "flex";
     }
   } catch (err) {
     console.error("Could not load model for", variant.id, err);
+    if (noPreview) noPreview.style.display = "flex";
   }
 
   // Wire AR launch button — calls model-viewer's activateAR()
