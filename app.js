@@ -17,18 +17,18 @@ const CATALOG = {
     {
       id: "extinguisher",
       name: "Fire extinguisher",
-      desc: "Hand-held suppression unit",
+      desc: "Suppression equipment",
       hints: [
         { title: "Hint 1", text: "Mount fire extinguishers where they are highly visible and quickly reachable from any seat in the room." },
         { title: "Hint 2", text: "Keep them clear of obstructions like cabinets, doors, or curtains — every second matters in an emergency." },
-        { title: "Hint 3", text: "The recommended mounting height is between 90 cm and 150 cm above the floor." }
+        { title: "Hint 3", text: "The recommended mounting height is between 90 cm and 150 cm above the floor. Water buckets go on the floor." }
       ],
       variants: [
         {
           id: "classic",
           name: "Classic powder",
           glb: "assets/models/extinguisher_classic.glb",
-          usdz: null,                                             // no usdz scan for this one yet
+          usdz: null,
           fireClass: "Class A·B·C — dry powder",
           tip: "Mount on a clear wall section near the room exit, at 1.0–1.5 m height. Visible from anywhere in the room."
         },
@@ -47,25 +47,50 @@ const CATALOG = {
           usdz: "assets/models/extinguisher_bronze.usdz",
           fireClass: "Heritage — display piece",
           tip: "Decorative units must still be functional. Mount where they're protected but accessible."
+        },
+        {
+          id: "bucket_red",
+          name: "Water bucket",
+          glb: "assets/models/water_bucket.glb",
+          usdz: "assets/models/water_bucket.usdz",
+          fireClass: "Class A — solids only",
+          tip: "Place at floor level near the workshop area, well clear of any electrical sockets. Never use on electrical fires."
         }
       ]
     },
     {
-      id: "bucket",
-      name: "Water bucket",
-      desc: "Class-A water station",
+      id: "lamp",
+      name: "Lamp",
+      desc: "Lighting & fire hazards",
       hints: [
-        { title: "Hint 1", text: "Water buckets are best placed near workshop areas where Class-A combustibles (paper, wood, fabric) are present." },
-        { title: "Hint 2", text: "Never place a water bucket near electrical outlets or live equipment — water conducts electricity." }
+        { title: "Hint 1", text: "Keep all lamps at least 50 cm away from curtains, paper, and other flammable materials." },
+        { title: "Hint 2", text: "Never place lamps where they block exit routes or where the cord runs under rugs or through doorways." },
+        { title: "Hint 3", text: "Floor and table lamps tip easily — place them against a wall or in a corner, not in walkways." }
       ],
       variants: [
         {
-          id: "bucket_red",
-          name: "Standard bucket",
-          glb: "assets/models/water_bucket.glb",
-          usdz: "assets/models/water_bucket.usdz",
-          fireClass: "Class A — solids only",
-          tip: "Place at floor level, near the workshop area, well clear of any electrical sockets."
+          id: "lamp_gas",
+          name: "Gas lantern",
+          glb: "assets/models/lamp_gas.glb",
+          usdz: "assets/models/Lampe_gas.usdz",
+          fireClass: "Open flame — high risk",
+          tip: "Keep at least 1 m from any flammable surface. Never leave unattended and ensure adequate ventilation."
+        },
+        {
+          id: "lamp_grande",
+          name: "Floor lamp",
+          glb: "assets/models/lamp_grande.glb",
+          usdz: "assets/models/Lampe_grande.usdz",
+          fireClass: "Electrical — moderate risk",
+          tip: "Place against a wall, away from curtains. Keep the shade clear of fabric by at least 30 cm."
+        },
+        {
+          id: "lamp_squared",
+          name: "Table lamp",
+          glb: "assets/models/lamp_squared.glb",
+          usdz: "assets/models/Lamp_squared.usdz",
+          fireClass: "Electrical — low risk",
+          tip: "Set on a stable surface away from paper and fabric. Do not run the cord under rugs or over sharp edges."
         }
       ]
     }
@@ -288,7 +313,8 @@ function renderItemSelect() {
   ).join("");
 
   const variantGrid = document.getElementById("variantGrid");
-  variantGrid.style.gridTemplateColumns = `repeat(${Math.min(cat.variants.length, 3)}, 1fr)`;
+  const cols = cat.variants.length === 4 ? 2 : Math.min(cat.variants.length, 3);
+  variantGrid.style.gridTemplateColumns = `repeat(${cols}, 1fr)`;
   variantGrid.innerHTML = cat.variants.map(v => {
     const placed = state.results[cat.id] && state.results[cat.id].variantId === v.id;
     return `
@@ -531,24 +557,36 @@ function evaluatePlacement(x, y) {
   let result;
 
   if (cat.id === "extinguisher") {
-    if (y < 0.18) {
-      result = { score: 25, title: "Mounted too high", body: "Above 1.5 m the handle is hard to reach in a panic. Lower it to chest height." };
-    } else if (y > 0.82) {
-      result = { score: 35, title: "On the floor", body: "Floor placement gets kicked, hidden under bags, and forgotten. Always wall-mount fire extinguishers." };
-    } else if (y >= 0.35 && y <= 0.65) {
-      result = { score: 100, title: "Excellent placement", body: "Right at chest height — anyone in the room can grab it in seconds. Textbook." };
-    } else if (y < 0.35) {
-      result = { score: 70, title: "A bit high", body: "Slightly above ideal. Bringing it down a notch makes it easier to grab in a hurry." };
+    if (variant.id === "bucket_red") {
+      if (y > 0.75) {
+        result = { score: 95, title: "Floor-level — perfect", body: "Buckets belong on the floor near the workshop area. Quick to grab, no lifting required." };
+      } else if (y < 0.5) {
+        result = { score: 15, title: "Too high", body: "A water bucket above shoulder height risks spills and is slow to deploy. Keep it on the floor." };
+      } else {
+        result = { score: 55, title: "A bit high", body: "Workable, but a water bucket is best placed on the floor. Move it lower." };
+      }
     } else {
-      result = { score: 70, title: "A bit low", body: "Workable, but the handle is below comfortable grab height. Aim higher next time." };
+      if (y < 0.18) {
+        result = { score: 25, title: "Mounted too high", body: "Above 1.5 m the handle is hard to reach in a panic. Lower it to chest height." };
+      } else if (y > 0.82) {
+        result = { score: 35, title: "On the floor", body: "Floor placement gets kicked, hidden under bags, and forgotten. Always wall-mount fire extinguishers." };
+      } else if (y >= 0.35 && y <= 0.65) {
+        result = { score: 100, title: "Excellent placement", body: "Right at chest height — anyone in the room can grab it in seconds. Textbook." };
+      } else if (y < 0.35) {
+        result = { score: 70, title: "A bit high", body: "Slightly above ideal. Bringing it down a notch makes it easier to grab in a hurry." };
+      } else {
+        result = { score: 70, title: "A bit low", body: "Workable, but the handle is below comfortable grab height. Aim higher next time." };
+      }
     }
-  } else if (cat.id === "bucket") {
-    if (y < 0.5) {
-      result = { score: 15, title: "Too high to reach quickly", body: "A water bucket above shoulder height risks spills and is slow to deploy. Keep it on the floor." };
-    } else if (y > 0.75) {
-      result = { score: 95, title: "Floor-level — perfect", body: "Buckets belong on the floor near the workshop area. Quick to grab, no lifting required." };
+  } else if (cat.id === "lamp") {
+    if (y < 0.15) {
+      result = { score: 40, title: "Too close to the ceiling", body: "This can trap heat and create a fire risk. Lower the lamp so it has clearance from the ceiling." };
+    } else if (y >= 0.15 && y <= 0.5) {
+      result = { score: 90, title: "Good height", body: "Well positioned — enough clearance above and away from floor-level flammables. Keep it away from curtains." };
+    } else if (y > 0.5 && y <= 0.72) {
+      result = { score: 55, title: "A bit low", body: "Placing a lamp this low brings it closer to rugs and floor-level flammables. Try a higher position." };
     } else {
-      result = { score: 60, title: "Acceptable", body: "Workable, but a water bucket is best on the floor. Move it lower." };
+      result = { score: 20, title: "Too low", body: "At floor level a lamp is a trip hazard and sits right next to flammable materials. Place it much higher." };
     }
   } else {
     result = { score: 60, title: "Placed", body: "Have a look at the hints to refine the placement." };
